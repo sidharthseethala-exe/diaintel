@@ -19,7 +19,7 @@ from app.nlp.cleaner import TextCleaner
 from app.nlp.combo_detector import detect_combos_for_post
 from app.nlp.drug_ner import DrugNER
 from app.nlp.graph_builder import graph_builder
-from app.nlp.misinfo_detector import check_misinfo_for_post
+# from app.nlp.misinfo_detector import check_misinfo_for_post  # DISABLED
 from app.nlp.outcome_extractor import process_outcomes_for_post
 from app.nlp.sentiment import score_sentiment_for_post
 from app.nlp.timeline_extractor import extract_timelines_for_post
@@ -127,7 +127,7 @@ class NLPPipeline:
                     process_outcomes_for_post(post["id"], post["clean_text"], post["drug_mentions"], db)
                     detect_combos_for_post(post["id"], post["clean_text"], db)
                     score_sentiment_for_post(post["id"], post["clean_text"], post["drug_mentions"], db)
-                    check_misinfo_for_post(post["id"], post["clean_text"], db)
+                    # check_misinfo_for_post  # DISABLED - too slow(post["id"], post["clean_text"], db)
                     extract_timelines_for_post(post["id"], post["clean_text"], db)
                     graph_builder.update_graph_for_post(post["id"], db)
                     db.commit()
@@ -253,3 +253,20 @@ class NLPPipeline:
 
 
 pipeline = NLPPipeline()
+
+
+def run_pipeline():
+    from app.database import SessionLocal
+    db = SessionLocal()
+    total = 0
+    try:
+        while True:
+            count = pipeline.process_batch(db=db, batch_size=1000)
+            if count == 0:
+                break
+            total += count
+            print(f'Processed {total} posts so far...')
+    finally:
+        db.close()
+    print(f'Done! Total: {total} posts processed')
+    return total
