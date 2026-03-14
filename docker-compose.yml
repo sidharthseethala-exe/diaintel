@@ -56,13 +56,6 @@ services:
       - ./backend/.env.example
     environment:
       - TOKENIZERS_PARALLELISM=false
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [ gpu ]
     networks:
       - diaintel-network
 
