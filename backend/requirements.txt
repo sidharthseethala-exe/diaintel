@@ -37,3 +37,4 @@ python-multipart==0.0.6
 httpx==0.25.2
 orjson==3.9.10
 tqdm==4.66.1
+langdetect==1.0.9
