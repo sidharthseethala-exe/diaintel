@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   postgres:
     image: timescale/timescaledb:latest-pg15
@@ -15,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U diaintel -d diaintel"]
+      test: [ "CMD-SHELL", "pg_isready -U diaintel -d diaintel" ]
       interval: 5s
       timeout: 30s
       retries: 5
@@ -29,7 +27,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 30s
       retries: 5
@@ -58,6 +56,13 @@ services:
       - ./backend/.env.example
     environment:
       - TOKENIZERS_PARALLELISM=false
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
     networks:
       - diaintel-network
 

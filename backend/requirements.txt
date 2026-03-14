@@ -1,40 +1,44 @@
-# DiaIntel Backend Requirements
-# Core Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-dotenv==1.0.0
-pydantic==2.5.2
-pydantic-settings==2.1.0
+    # DiaIntel Backend Requirements
+    # Core Framework
+    fastapi==0.104.1
+    uvicorn[standard]==0.24.0
+    python-dotenv==1.0.0
+    pydantic==2.5.2
+    pydantic-settings==2.1.0
 
-# Database
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-alembic==1.13.0
+    # Database
+    sqlalchemy==2.0.23
+    psycopg2-binary==2.9.9
+    alembic==1.13.0
 
-# Redis
-redis==5.0.1
+    # Redis
+    redis==5.0.1
 
-# Data Ingestion
-zstandard==0.22.0
+    # Data Ingestion
+    zstandard==0.22.0
 
-# NLP / ML
-spacy==3.7.2
-transformers==4.36.2
-torch==2.1.2
-tokenizers==0.15.0
+    # NLP / ML
+    spacy==3.7.2
+    transformers==4.36.2
+    tokenizers==0.15.0
 
-# Scheduling
-apscheduler==3.10.4
+    torch==2.1.2+cu121
+    torchvision==0.16.2+cu121
+    torchaudio==2.1.2+cu121
+    --extra-index-url https://download.pytorch.org/whl/cu121
 
-# Knowledge Graph
-networkx==3.2.1
+    # Scheduling
+    apscheduler==3.10.4
 
-# HTTP & WebSocket
-websockets==12.0
-python-multipart==0.0.6
+    # Knowledge Graph
+    networkx==3.2.1
 
-# Utilities
-httpx==0.25.2
-orjson==3.9.10
-tqdm==4.66.1
-langdetect==1.0.9
+    # HTTP & WebSocket
+    websockets==12.0
+    python-multipart==0.0.6
+
+    # Utilities
+    httpx==0.25.2
+    orjson==3.9.10
+    tqdm==4.66.1
+    langdetect==1.0.9
