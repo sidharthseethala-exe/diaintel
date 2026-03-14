@@ -1,5 +1,5 @@
 /**
- * DiaIntel — API Service Layer
+ * DiaIntel - API Service Layer
  * Centralized API client for all backend endpoints.
  */
 
@@ -15,7 +15,6 @@ const api = axios.create({
     },
 });
 
-// Response interceptor for error handling
 api.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -36,6 +35,8 @@ export const getTrending = () => api.get('/trending');
 // ============================================================
 export const getDrugInsights = (drugName) => api.get(`/drug/${drugName}/insights`);
 export const getDrugTimeline = (drugName) => api.get(`/drug/${drugName}/timeline`);
+export const getDrugOutcomes = (drugName) => api.get(`/drug/${drugName}/outcomes`);
+export const getDrugTimelineInsights = (drugName) => api.get(`/drug/${drugName}/timeline-insights`);
 
 // ============================================================
 // Compare
@@ -46,6 +47,12 @@ export const compareDrugs = (drugs) => api.get('/compare', { params: { drugs: dr
 // Graph
 // ============================================================
 export const getDrugAEGraph = () => api.get('/graph/drug-ae');
+
+// ============================================================
+// Combinations
+// ============================================================
+export const getCombinations = (params = {}) => api.get('/combinations', { params });
+export const getDrugCombinations = (drugName) => api.get(`/combinations/${drugName}`);
 
 // ============================================================
 // Analyze
