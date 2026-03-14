@@ -25,3 +25,4 @@ backend/data/raw/*.zst
 # OS
 .DS_Store
 Thumbs.db
+diaintel_backup.sql
