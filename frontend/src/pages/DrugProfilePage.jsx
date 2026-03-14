@@ -81,6 +81,16 @@ function dominantSeverity(breakdown = {}) {
     return entries[0][0] || 'moderate';
 }
 
+function sentimentLabelFromScore(score) {
+    if (score > 0.05) {
+        return 'Positive';
+    }
+    if (score < -0.05) {
+        return 'Slightly Negative';
+    }
+    return 'Neutral';
+}
+
 function DrugProfilePage() {
     const { drugName } = useParams();
     const navigate = useNavigate();
@@ -208,22 +218,22 @@ function DrugProfilePage() {
                     <div className="flex flex-col gap-3 md:flex-row md:items-center">
                         <input
                             type="text"
-                            placeholder="Search for a drug (e.g. metformin, ozempic, jardiance)"
+                            placeholder="Search for a medication (e.g. Ozempic, Metformin, Jardiance...)"
                             className="di-input"
                             value={searchValue}
                             onChange={(event) => setSearchValue(event.target.value)}
                         />
                         <button type="submit" className="di-btn-primary whitespace-nowrap">
-                            Search Drug
+                            Search
                         </button>
                     </div>
                 </form>
 
                 {!drugName ? (
                     <div className="di-card py-16 text-center">
-                        <h1 className="text-2xl font-bold text-di-text">Drug Profile</h1>
+                        <h1 className="text-2xl font-bold text-di-text">Medication Safety Profile</h1>
                         <p className="mx-auto mt-3 max-w-2xl text-sm text-di-text-secondary">
-                            Search for a target drug to load its adverse-event profile, sentiment history, treatment outcomes, and co-reported combinations.
+                            Select a medication below to explore its patient-reported safety profile:
                         </p>
                         <div className="mt-6 flex flex-wrap justify-center gap-2">
                             {POPULAR_DRUGS.map((drug) => (
@@ -243,21 +253,17 @@ function DrugProfilePage() {
                         {loading.insights && !insights ? (
                             <SkeletonCard lines={4} />
                         ) : errors.insights ? (
-                            <SectionError
-                                title="Drug identity"
-                                error={errors.insights}
-                                onRetry={() => navigate(0)}
-                            />
+                            <SectionError title="Medication profile" error={errors.insights} onRetry={() => navigate(0)} />
                         ) : insights ? (
                             <div className="di-card">
                                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                     <div>
                                         <div className="flex flex-wrap items-center gap-3">
                                             <h1 className="text-3xl font-bold text-di-text">{insights.display_name}</h1>
-                                            <span className="di-badge-green capitalize">{insights.sentiment_label}</span>
+                                            <span className="di-badge-green capitalize">{sentimentLabelFromScore(insights.overall_sentiment)}</span>
                                         </div>
                                         <p className="mt-2 text-sm text-di-text-secondary">
-                                            {insights.drug_class || 'Treatment intelligence profile'}
+                                            Patient-reported safety profile based on real discussion data
                                         </p>
                                         <div className="mt-3 flex flex-wrap gap-2">
                                             {(insights.brand_names || []).map((brand) => (
@@ -266,25 +272,25 @@ function DrugProfilePage() {
                                         </div>
                                     </div>
                                     <Link to="/compare" className="di-btn-secondary whitespace-nowrap">
-                                        Compare Drugs
+                                        Compare Medications
                                     </Link>
                                 </div>
                                 <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
                                     <div className="rounded-xl bg-di-bg/60 p-4">
                                         <div className="text-2xl font-bold text-di-accent">{insights.total_posts}</div>
-                                        <div className="mt-1 text-xs text-di-text-secondary">Total posts</div>
+                                        <div className="mt-1 text-xs text-di-text-secondary">Patient Discussions</div>
                                     </div>
                                     <div className="rounded-xl bg-di-bg/60 p-4">
-                                        <div className="text-2xl font-bold text-di-text">{insights.sentiment_label}</div>
-                                        <div className="mt-1 text-xs text-di-text-secondary">Sentiment label</div>
+                                        <div className="text-2xl font-bold text-di-text capitalize">{insights.sentiment_label}</div>
+                                        <div className="mt-1 text-xs text-di-text-secondary">Reported outlook</div>
                                     </div>
                                     <div className="rounded-xl bg-di-bg/60 p-4">
-                                        <div className="text-2xl font-bold text-di-text">{insights.overall_sentiment.toFixed(3)}</div>
-                                        <div className="mt-1 text-xs text-di-text-secondary">Overall sentiment</div>
+                                        <div className="text-2xl font-bold text-di-text">{sentimentLabelFromScore(insights.overall_sentiment)}</div>
+                                        <div className="mt-1 text-xs text-di-text-secondary">Overall patient sentiment</div>
                                     </div>
                                     <div className="rounded-xl bg-di-bg/60 p-4">
                                         <div className="text-2xl font-bold text-di-text">{formatDate(insights.last_signal_time)}</div>
-                                        <div className="mt-1 text-xs text-di-text-secondary">Last signal</div>
+                                        <div className="mt-1 text-xs text-di-text-secondary">Last Report</div>
                                     </div>
                                 </div>
                             </div>
@@ -294,10 +300,10 @@ function DrugProfilePage() {
                             {loading.insights && !insights ? (
                                 <SkeletonChart height="h-80" />
                             ) : errors.insights ? (
-                                <SectionError title="Top adverse events" error={errors.insights} onRetry={() => navigate(0)} />
+                                <SectionError title="Most Reported Side Effects" error={errors.insights} onRetry={() => navigate(0)} />
                             ) : (
                                 <div className="di-card">
-                                    <h2 className="di-section-title">Top Adverse Events</h2>
+                                    <h2 className="di-section-title">Most Reported Side Effects</h2>
                                     {aeChartData.length ? (
                                         <div className="h-80">
                                             <ResponsiveContainer width="100%" height="100%">
@@ -305,9 +311,7 @@ function DrugProfilePage() {
                                                     <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
                                                     <XAxis type="number" stroke={COLORS.text} tickLine={false} axisLine={false} />
                                                     <YAxis dataKey="ae_term" type="category" width={120} stroke={COLORS.text} tickLine={false} axisLine={false} />
-                                                    <Tooltip
-                                                        contentStyle={{ backgroundColor: '#112820', border: '1px solid #1E3A2F', borderRadius: '12px', color: '#FFFFFF' }}
-                                                    />
+                                                    <Tooltip contentStyle={{ backgroundColor: '#112820', border: '1px solid #1E3A2F', borderRadius: '12px', color: '#FFFFFF' }} />
                                                     <Bar dataKey="count" radius={[0, 8, 8, 0]}>
                                                         {aeChartData.map((entry) => (
                                                             <Cell key={entry.ae_term} fill={COLORS[entry.severity] || COLORS.moderate} />
@@ -318,7 +322,7 @@ function DrugProfilePage() {
                                         </div>
                                     ) : (
                                         <div className="flex h-80 items-center justify-center rounded-xl border border-dashed border-di-border text-sm text-di-text-secondary">
-                                            No adverse-event data available for this drug.
+                                            No side effect reports are available for this medication yet.
                                         </div>
                                     )}
                                 </div>
@@ -327,10 +331,10 @@ function DrugProfilePage() {
                             {loading.timeline && !timeline ? (
                                 <SkeletonChart height="h-80" />
                             ) : errors.timeline ? (
-                                <SectionError title="Sentiment timeline" error={errors.timeline} onRetry={() => navigate(0)} />
+                                <SectionError title="Patient Sentiment Over Time" error={errors.timeline} onRetry={() => navigate(0)} />
                             ) : (
                                 <div className="di-card">
-                                    <h2 className="di-section-title">Sentiment Timeline</h2>
+                                    <h2 className="di-section-title">Patient Sentiment Over Time</h2>
                                     {timelineChartData.length ? (
                                         <div className="h-80">
                                             <ResponsiveContainer width="100%" height="100%">
@@ -338,9 +342,7 @@ function DrugProfilePage() {
                                                     <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
                                                     <XAxis dataKey="month" stroke={COLORS.text} tickLine={false} axisLine={false} />
                                                     <YAxis stroke={COLORS.text} tickLine={false} axisLine={false} />
-                                                    <Tooltip
-                                                        contentStyle={{ backgroundColor: '#112820', border: '1px solid #1E3A2F', borderRadius: '12px', color: '#FFFFFF' }}
-                                                    />
+                                                    <Tooltip contentStyle={{ backgroundColor: '#112820', border: '1px solid #1E3A2F', borderRadius: '12px', color: '#FFFFFF' }} />
                                                     <Line type="monotone" dataKey="sentiment" stroke={COLORS.accent} strokeWidth={3} dot={{ r: 3 }} />
                                                     <Line type="monotone" dataKey="ae_count" stroke={COLORS.severe} strokeWidth={2} dot={{ r: 2 }} />
                                                 </LineChart>
@@ -348,7 +350,7 @@ function DrugProfilePage() {
                                         </div>
                                     ) : (
                                         <div className="flex h-80 items-center justify-center rounded-xl border border-dashed border-di-border text-sm text-di-text-secondary">
-                                            No timeline data available yet.
+                                            No patient sentiment history is available yet.
                                         </div>
                                     )}
                                 </div>
@@ -357,10 +359,10 @@ function DrugProfilePage() {
                             {loading.insights && !insights ? (
                                 <SkeletonChart height="h-72" />
                             ) : errors.insights ? (
-                                <SectionError title="Severity breakdown" error={errors.insights} onRetry={() => navigate(0)} />
+                                <SectionError title="Side Effect Severity Distribution" error={errors.insights} onRetry={() => navigate(0)} />
                             ) : (
                                 <div className="di-card">
-                                    <h2 className="di-section-title">Severity Breakdown</h2>
+                                    <h2 className="di-section-title">Side Effect Severity Distribution</h2>
                                     {severityData.length ? (
                                         <div className="h-72">
                                             <ResponsiveContainer width="100%" height="100%">
@@ -377,15 +379,13 @@ function DrugProfilePage() {
                                                             <Cell key={entry.name} fill={COLORS[entry.name] || COLORS.moderate} />
                                                         ))}
                                                     </Pie>
-                                                    <Tooltip
-                                                        contentStyle={{ backgroundColor: '#112820', border: '1px solid #1E3A2F', borderRadius: '12px', color: '#FFFFFF' }}
-                                                    />
+                                                    <Tooltip contentStyle={{ backgroundColor: '#112820', border: '1px solid #1E3A2F', borderRadius: '12px', color: '#FFFFFF' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
                                     ) : (
                                         <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-di-border text-sm text-di-text-secondary">
-                                            No severity breakdown available yet.
+                                            No side effect severity information is available yet.
                                         </div>
                                     )}
                                     <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
@@ -402,10 +402,10 @@ function DrugProfilePage() {
                             {loading.outcomes && !outcomes ? (
                                 <SkeletonList items={4} />
                             ) : errors.outcomes ? (
-                                <SectionError title="Treatment outcomes" error={errors.outcomes} onRetry={() => navigate(0)} />
+                                <SectionError title="Reported Treatment Outcomes" error={errors.outcomes} onRetry={() => navigate(0)} />
                             ) : (
                                 <div className="di-card">
-                                    <h2 className="di-section-title">Treatment Outcomes</h2>
+                                    <h2 className="di-section-title">Reported Treatment Outcomes</h2>
                                     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                                         {['positive', 'negative', 'neutral', 'total'].map((key) => (
                                             <div key={key} className="rounded-xl bg-di-bg/60 p-3 text-center">
@@ -423,12 +423,12 @@ function DrugProfilePage() {
                                                 </div>
                                                 <div className="text-right">
                                                     <div className="font-semibold text-di-accent">{row.count}</div>
-                                                    <div className="mt-1 text-xs text-di-text-secondary">{Math.round(row.avg_confidence * 100)}% conf.</div>
+                                                    <div className="mt-1 text-xs text-di-text-secondary">{Math.round(row.avg_confidence * 100)}% confidence</div>
                                                 </div>
                                             </div>
                                         )) : (
                                             <div className="rounded-xl border border-dashed border-di-border p-6 text-center text-sm text-di-text-secondary">
-                                                No treatment outcomes available yet.
+                                                No treatment outcomes are available yet.
                                             </div>
                                         )}
                                     </div>
@@ -439,30 +439,30 @@ function DrugProfilePage() {
                         {loading.combinations && !combinations ? (
                             <SkeletonChart height="h-64" />
                         ) : errors.combinations ? (
-                            <SectionError title="Drug combinations" error={errors.combinations} onRetry={() => navigate(0)} />
+                            <SectionError title="Commonly Co-prescribed Medications" error={errors.combinations} onRetry={() => navigate(0)} />
                         ) : (
                             <div className="di-card">
-                                <h2 className="di-section-title">Drug Combinations</h2>
+                                <h2 className="di-section-title">Commonly Co-prescribed Medications</h2>
                                 {combinationRows.length ? (
                                     <div className="overflow-hidden rounded-xl border border-di-border">
                                         <div className="grid grid-cols-[1.4fr_0.7fr_0.8fr] gap-4 bg-di-bg/70 px-4 py-3 text-xs uppercase tracking-wide text-di-text-secondary">
-                                            <span>Pair</span>
-                                            <span>Posts</span>
-                                            <span>Concurrency</span>
+                                            <span>Medication Pair</span>
+                                            <span>Patient Reports</span>
+                                            <span>Co-prescription Rate</span>
                                         </div>
                                         <div className="divide-y divide-di-border">
                                             {combinationRows.map((row) => (
                                                 <div key={`${row.drug_1}-${row.drug_2}`} className="grid grid-cols-[1.4fr_0.7fr_0.8fr] gap-4 px-4 py-3 text-sm">
                                                     <span className="text-di-text">{row.drug_1} / {row.drug_2}</span>
                                                     <span className="text-di-text-secondary">{row.post_count}</span>
-                                                    <span className="text-di-accent">{row.concurrency_score.toFixed(2)}</span>
+                                                    <span className="text-di-accent">{Math.round(row.concurrency_score * 100)}%</span>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="rounded-xl border border-dashed border-di-border p-8 text-center text-sm text-di-text-secondary">
-                                        No co-reported drug combinations found for this profile yet.
+                                        No commonly co-prescribed medications were found for this profile yet.
                                     </div>
                                 )}
                             </div>
@@ -475,6 +475,3 @@ function DrugProfilePage() {
 }
 
 export default DrugProfilePage;
-
-
-

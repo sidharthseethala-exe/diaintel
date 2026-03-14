@@ -3,7 +3,23 @@ import React, { useMemo, useState } from 'react';
 import ErrorBoundary from '../ErrorBoundary';
 import { analyzeText } from '../services/api';
 
-const FALLBACK_ERROR = 'Analysis model unavailable. To fix, run: `docker exec diaintel-backend python -m app.scripts.download_model`';
+const FALLBACK_ERROR = 'Analysis model is currently loading. Please try again in a moment, or run: `docker exec diaintel-backend python -m app.scripts.download_model` to initialize it.';
+
+function sentimentLabelFromScore(score) {
+    if (score >= 0.4) {
+        return 'Positive';
+    }
+    if (score > 0.05) {
+        return 'Slightly Positive';
+    }
+    if (score <= -0.4) {
+        return 'Negative';
+    }
+    if (score < -0.05) {
+        return 'Slightly Negative';
+    }
+    return 'Neutral';
+}
 
 function LiveAnalyzerPage() {
     const [text, setText] = useState('');
@@ -44,9 +60,9 @@ function LiveAnalyzerPage() {
         <ErrorBoundary>
             <div className="space-y-6 animate-fade-in">
                 <div>
-                    <h1 className="text-2xl font-bold text-di-text">Live Analyzer</h1>
+                    <h1 className="text-2xl font-bold text-di-text">Real-Time Safety Analyzer</h1>
                     <p className="mt-1 text-sm text-di-text-secondary">
-                        Paste patient text for real-time drug safety analysis.
+                        Paste any patient forum post, personal medication experience, or clinical note to extract medication safety insights instantly.
                     </p>
                 </div>
 
@@ -54,7 +70,7 @@ function LiveAnalyzerPage() {
                     <textarea
                         value={text}
                         onChange={(event) => setText(event.target.value)}
-                        placeholder="Paste a patient report, forum post, or clinical note here."
+                        placeholder="Example: I've been taking Ozempic 1mg weekly for 3 months. I experienced nausea and vomiting in the first few weeks but my blood sugar has improved significantly."
                         className="di-input min-h-[220px] resize-y font-mono text-sm"
                         rows={8}
                     />
@@ -85,74 +101,75 @@ function LiveAnalyzerPage() {
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <div className="di-card text-center">
                                 <div className="text-3xl font-bold text-di-accent">{result.drugs?.length || 0}</div>
-                                <div className="mt-1 text-sm text-di-text-secondary">Drugs found</div>
+                                <div className="mt-1 text-sm text-di-text-secondary">Medications Detected</div>
                             </div>
                             <div className="di-card text-center">
                                 <div className="text-3xl font-bold text-di-severity-high">{result.adverse_events?.length || 0}</div>
-                                <div className="mt-1 text-sm text-di-text-secondary">Adverse events</div>
+                                <div className="mt-1 text-sm text-di-text-secondary">Side Effects Found</div>
                             </div>
                             <div className="di-card text-center">
-                                <div className="text-3xl font-bold text-di-text">{Math.round(result.processing_time_ms || 0)} ms</div>
-                                <div className="mt-1 text-sm text-di-text-secondary">Processing time</div>
+                                <div className="text-3xl font-bold text-di-text">
+                                    {sentimentRows[0] ? sentimentLabelFromScore(sentimentRows[0].score) : 'Neutral'}
+                                </div>
+                                <div className="mt-1 text-sm text-di-text-secondary">Patient Sentiment</div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                             <div className="di-card xl:col-span-1">
-                                <h2 className="di-section-title">Drugs</h2>
+                                <h2 className="di-section-title">Medications</h2>
                                 <div className="space-y-3">
                                     {(result.drugs || []).length ? (
                                         result.drugs.map((drug, index) => (
                                             <div key={`${drug.drug_name}-${index}`} className="rounded-xl bg-di-bg/60 p-3 text-sm">
                                                 <div className="font-semibold text-di-text">{drug.drug_normalized}</div>
-                                                <div className="mt-1 text-di-text-secondary">Mention: {drug.drug_name}</div>
-                                                {drug.dosage ? <div className="mt-1 text-di-text-secondary">Dosage: {drug.dosage}</div> : null}
-                                                <div className="mt-1 text-di-accent">{Math.round(drug.confidence * 100)}% confidence</div>
+                                                <div className="mt-1 text-di-text-secondary">Detected as: {drug.drug_name}</div>
+                                                {drug.dosage ? <div className="mt-1 text-di-text-secondary">Dosage mentioned: {drug.dosage}</div> : null}
+                                                <div className="mt-1 text-di-accent">{Math.round(drug.confidence * 100)}% AI confidence</div>
                                             </div>
                                         ))
                                     ) : (
                                         <div className="rounded-xl border border-dashed border-di-border p-6 text-center text-sm text-di-text-secondary">
-                                            No drug mentions detected.
+                                            No medications detected.
                                         </div>
                                     )}
                                 </div>
                             </div>
 
                             <div className="di-card xl:col-span-1">
-                                <h2 className="di-section-title">Adverse Events</h2>
+                                <h2 className="di-section-title">Side Effects</h2>
                                 <div className="space-y-3">
                                     {(result.adverse_events || []).length ? (
                                         result.adverse_events.map((event, index) => (
                                             <div key={`${event.ae_term}-${index}`} className="rounded-xl bg-di-bg/60 p-3 text-sm">
                                                 <div className="font-semibold text-di-text">{event.ae_term}</div>
-                                                <div className="mt-1 text-di-text-secondary">Normalized: {event.ae_normalized || event.ae_term}</div>
-                                                <div className="mt-1 capitalize text-di-text-secondary">Severity: {event.severity}</div>
-                                                <div className="mt-1 text-di-severity-high">{Math.round(event.confidence * 100)}% confidence</div>
+                                                <div className="mt-1 text-di-text-secondary">Standardized term: {event.ae_normalized || event.ae_term}</div>
+                                                <div className="mt-1 capitalize text-di-text-secondary">Severity level: {event.severity}</div>
+                                                <div className="mt-1 text-di-severity-high">{Math.round(event.confidence * 100)}% AI confidence</div>
                                             </div>
                                         ))
                                     ) : (
                                         <div className="rounded-xl border border-dashed border-di-border p-6 text-center text-sm text-di-text-secondary">
-                                            No adverse events detected.
+                                            No side effects found.
                                         </div>
                                     )}
                                 </div>
                             </div>
 
                             <div className="di-card xl:col-span-1">
-                                <h2 className="di-section-title">Sentiment</h2>
+                                <h2 className="di-section-title">Patient Sentiment</h2>
                                 <div className="space-y-3">
                                     {sentimentRows.length ? (
                                         sentimentRows.map((row) => (
                                             <div key={row.drugName} className="rounded-xl bg-di-bg/60 p-3 text-sm">
                                                 <div className="font-semibold capitalize text-di-text">{row.drugName}</div>
-                                                <div className="mt-1 capitalize text-di-text-secondary">{row.label}</div>
-                                                <div className="mt-1 text-di-text-secondary">Score: {row.score.toFixed(3)}</div>
-                                                <div className="mt-1 text-di-accent">{Math.round(row.confidence * 100)}% confidence</div>
+                                                <div className="mt-1 text-di-text-secondary">{sentimentLabelFromScore(row.score)}</div>
+                                                <div className="mt-1 text-di-accent">{Math.round(row.confidence * 100)}% AI confidence</div>
                                             </div>
                                         ))
                                     ) : (
                                         <div className="rounded-xl border border-dashed border-di-border p-6 text-center text-sm text-di-text-secondary">
-                                            No sentiment data returned.
+                                            No patient sentiment data returned.
                                         </div>
                                     )}
                                 </div>
@@ -164,9 +181,9 @@ function LiveAnalyzerPage() {
                 <div className="di-card bg-di-accent/5 border-di-accent/20">
                     <h2 className="di-section-title">How it works</h2>
                     <ul className="list-disc space-y-1 pl-5 text-sm text-di-text-secondary">
-                        <li>Uses the real-time analyze endpoint backed by DistilBERT.</li>
-                        <li>Returns structured drugs, adverse events, sentiment, combinations, and misinformation signals.</li>
-                        <li>Gracefully handles model failures without crashing the page.</li>
+                        <li>Uses AI to detect medication names, dosages, and side effects from natural language.</li>
+                        <li>Extracts structured safety information including severity levels and confidence scores.</li>
+                        <li>Provides traceable source confidence for every detected result.</li>
                     </ul>
                 </div>
             </div>
@@ -175,3 +192,4 @@ function LiveAnalyzerPage() {
 }
 
 export default LiveAnalyzerPage;
+

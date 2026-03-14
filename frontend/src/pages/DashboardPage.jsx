@@ -159,22 +159,22 @@ function DashboardPage() {
     const statCards = useMemo(() => {
         return [
             {
-                label: 'Total Posts Processed',
+                label: 'Patient Discussions Analyzed',
                 value: formatCompactNumber(dashboardData?.total_posts),
-                helper: `${formatCompactNumber(ingestionData?.total_records_loaded)} rows loaded`,
+                helper: `${formatCompactNumber(ingestionData?.total_records_loaded)} discussion records loaded`,
             },
             {
-                label: 'AE Signals Detected',
+                label: 'Side Effects Reported',
                 value: formatCompactNumber(dashboardData?.total_ae_signals),
                 helper:
                     lastUpdate?.count !== undefined
-                        ? `${lastUpdate.count} new signal(s)`
-                        : 'Across all tracked drugs',
+                        ? `${lastUpdate.count} new patient reports`
+                        : 'Across all monitored medications',
             },
             {
-                label: 'Drugs Tracked',
+                label: 'Medications Monitored',
                 value: formatCompactNumber(dashboardData?.total_drugs_tracked),
-                helper: 'Normalized across brand and generic mentions',
+                helper: 'Grouped across brand and generic names',
             },
             {
                 label: 'Last Updated',
@@ -213,18 +213,17 @@ function DashboardPage() {
             <div className="space-y-6 animate-fade-in">
                 <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
-                        <p className="text-sm uppercase tracking-[0.25em] text-di-text-secondary">Step 10</p>
-                        <h1 className="mt-2 text-3xl font-bold text-di-text">Platform Dashboard</h1>
+                        <h1 className="mt-2 text-3xl font-bold text-di-text">Treatment Intelligence Dashboard</h1>
                         <p className="mt-2 max-w-3xl text-sm text-di-text-secondary">
-                            High-level view of ingestion, signal detection, and sentiment shifts across DiaIntel.
+                            Real-world drug safety insights extracted from patient discussions across Reddit.
                         </p>
                     </div>
                     <div className="di-card min-w-[280px] p-4">
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <div className="text-sm font-medium text-di-text">Live pipeline status</div>
+                                <div className="text-sm font-medium text-di-text">Live monitoring status</div>
                                 <div className="mt-1 text-xs text-di-text-secondary">
-                                    {lastUpdate?.message || 'Waiting for the next ingestion or NLP event'}
+                                    {lastUpdate?.message || 'Monitoring patient discussions in real time'}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -232,7 +231,7 @@ function DashboardPage() {
                                     className={`h-2.5 w-2.5 rounded-full ${isConnected ? 'bg-di-accent animate-pulse-slow' : 'bg-di-warning'}`}
                                 />
                                 <span className="text-xs font-medium text-di-text-secondary">
-                                    {isConnected ? 'WebSocket live' : 'Reconnecting'}
+                                    {isConnected ? 'Live' : 'Reconnecting'}
                                 </span>
                             </div>
                         </div>
@@ -270,19 +269,19 @@ function DashboardPage() {
 
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                     {hasTrendingError ? (
-                        <ErrorCard title="Trending adverse events" error={trendingError} onRetry={refetchTrending} />
+                        <ErrorCard title="Most reported side effects" error={trendingError} onRetry={refetchTrending} />
                     ) : trendingLoading && !trendingData ? (
                         <SkeletonChart height="h-80" />
                     ) : (
                         <div className="di-card">
                             <div className="mb-4 flex items-center justify-between gap-3">
                                 <div>
-                                    <h2 className="di-section-title mb-1">Trending AEs This Month</h2>
+                                    <h2 className="di-section-title mb-1">Most Reported Side Effects This Month</h2>
                                     <p className="text-sm text-di-text-secondary">
-                                        Highest growth in the last {trendingData?.period_days || 30} days.
+                                        Side effects with the highest increase in patient reports over the last {trendingData?.period_days || 30} days.
                                     </p>
                                 </div>
-                                <span className="di-badge-yellow">{trendingChartData.length} signals</span>
+                                <span className="di-badge-yellow">{trendingChartData.length} reports</span>
                             </div>
                             {trendingChartData.length ? (
                                 <div className="h-80">
@@ -330,23 +329,23 @@ function DashboardPage() {
                                 </div>
                             ) : (
                                 <div className="flex h-80 items-center justify-center rounded-xl border border-dashed border-di-border text-sm text-di-text-secondary">
-                                    No trending adverse-event data yet.
+                                    No side effect trends available yet.
                                 </div>
                             )}
                         </div>
                     )}
 
                     {hasDashboardError ? (
-                        <ErrorCard title="Recent signals" error={dashboardError} onRetry={refetchDashboard} />
+                        <ErrorCard title="Latest patient reports" error={dashboardError} onRetry={refetchDashboard} />
                     ) : dashboardLoading && !dashboardData ? (
                         <SkeletonList items={5} />
                     ) : (
                         <div className="di-card">
                             <div className="mb-4 flex items-center justify-between gap-3">
                                 <div>
-                                    <h2 className="di-section-title mb-1">Recent Signals Feed</h2>
+                                    <h2 className="di-section-title mb-1">Latest Patient Reports</h2>
                                     <p className="text-sm text-di-text-secondary">
-                                        Latest extracted adverse events with source confidence.
+                                        Most recent side effect mentions from patient discussions, with AI confidence scores.
                                     </p>
                                 </div>
                                 <span className="di-badge-green">Live</span>
@@ -377,7 +376,7 @@ function DashboardPage() {
                                                         {signal.ae_term}
                                                     </div>
                                                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-di-text-secondary">
-                                                        <span>Signal #{signal.id}</span>
+                                                        <span>Report #{signal.id}</span>
                                                         <span>{formatRelativeTime(signal.detected_at)}</span>
                                                         <span>{formatDateTime(signal.detected_at)}</span>
                                                     </div>
@@ -388,7 +387,7 @@ function DashboardPage() {
                                     ))
                                 ) : (
                                     <div className="flex min-h-72 items-center justify-center rounded-xl border border-dashed border-di-border text-sm text-di-text-secondary">
-                                        No recent signals yet. Run the pipeline or seed data to populate this feed.
+                                        No recent patient reports have been summarized yet.
                                     </div>
                                 )}
                             </div>
@@ -398,21 +397,18 @@ function DashboardPage() {
 
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
                     {hasDashboardError ? (
-                        <ErrorCard title="Sentiment overview" error={dashboardError} onRetry={refetchDashboard} />
+                        <ErrorCard title="Patient Sentiment Overview" error={dashboardError} onRetry={refetchDashboard} />
                     ) : dashboardLoading && !dashboardData ? (
                         <SkeletonChart height="h-80" />
                     ) : (
                         <div className="di-card">
                             <div className="mb-4 flex items-center justify-between gap-3">
                                 <div>
-                                    <h2 className="di-section-title mb-1">Sentiment Overview</h2>
+                                    <h2 className="di-section-title mb-1">Patient Sentiment Overview</h2>
                                     <p className="text-sm text-di-text-secondary">
                                         Average per-drug sentiment split into positive and negative intensity.
                                     </p>
                                 </div>
-                                <span className="text-xs text-di-text-secondary">
-                                    {dashboardData?.processing_time_ms || 0} ms API time
-                                </span>
                             </div>
                             {sentimentChartData.length ? (
                                 <div className="h-80">
@@ -443,16 +439,16 @@ function DashboardPage() {
                     )}
 
                     {hasIngestionError ? (
-                        <ErrorCard title="Ingestion status" error={ingestionError} onRetry={refetchIngestion} />
+                        <ErrorCard title="Discussion data status" error={ingestionError} onRetry={refetchIngestion} />
                     ) : ingestionLoading && !ingestionData ? (
                         <SkeletonChart height="h-80" />
                     ) : (
                         <div className="di-card">
                             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <h2 className="di-section-title mb-1">Data Ingestion Status</h2>
+                                    <h2 className="di-section-title mb-1">Discussion Data Status</h2>
                                     <p className="text-sm text-di-text-secondary">
-                                        Per-file loader progress from Pushshift ingestion logs.
+                                        Imported discussion files and record counts.
                                     </p>
                                 </div>
                                 <span className="text-xs text-di-text-secondary">
@@ -490,7 +486,7 @@ function DashboardPage() {
                                 </div>
                             ) : (
                                 <div className="flex h-80 items-center justify-center rounded-xl border border-dashed border-di-border text-sm text-di-text-secondary">
-                                    No ingestion logs found yet.
+                                    No discussion files found yet.
                                 </div>
                             )}
                         </div>
@@ -502,3 +498,6 @@ function DashboardPage() {
 }
 
 export default DashboardPage;
+
+
+

@@ -43,6 +43,22 @@ function ErrorCard({ title, error, onRetry }) {
     );
 }
 
+function sentimentLabelFromScore(score) {
+    if (score >= 0.4) {
+        return 'Positive';
+    }
+    if (score > 0.05) {
+        return 'Slightly Positive';
+    }
+    if (score <= -0.4) {
+        return 'Negative';
+    }
+    if (score < -0.05) {
+        return 'Slightly Negative';
+    }
+    return 'Neutral';
+}
+
 function DrugComparePage() {
     const [drug1, setDrug1] = useState('ozempic');
     const [drug2, setDrug2] = useState('metformin');
@@ -110,16 +126,16 @@ function DrugComparePage() {
         <ErrorBoundary>
             <div className="space-y-6 animate-fade-in">
                 <div>
-                    <h1 className="text-2xl font-bold text-di-text">Drug Comparison</h1>
+                    <h1 className="text-2xl font-bold text-di-text">Medication Comparison</h1>
                     <p className="mt-1 text-sm text-di-text-secondary">
-                        Compare adverse-event burden, sentiment, and post volume side-by-side.
+                        Compare side effects, patient sentiment, and discussion volume for two medications.
                     </p>
                 </div>
 
                 <div className="di-card">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
                         <div className="flex-1">
-                            <label className="mb-2 block text-sm text-di-text-secondary">Drug 1</label>
+                            <label className="mb-2 block text-sm text-di-text-secondary">First Medication</label>
                             <select className="di-input" value={drug1} onChange={(event) => setDrug1(event.target.value)}>
                                 {DRUG_OPTIONS.map((drug) => (
                                     <option key={drug} value={drug} disabled={drug === drug2}>
@@ -129,7 +145,7 @@ function DrugComparePage() {
                             </select>
                         </div>
                         <div className="flex-1">
-                            <label className="mb-2 block text-sm text-di-text-secondary">Drug 2</label>
+                            <label className="mb-2 block text-sm text-di-text-secondary">Second Medication</label>
                             <select className="di-input" value={drug2} onChange={(event) => setDrug2(event.target.value)}>
                                 {DRUG_OPTIONS.map((drug) => (
                                     <option key={drug} value={drug} disabled={drug === drug1}>
@@ -151,7 +167,7 @@ function DrugComparePage() {
                 ) : comparison ? (
                     <div className="space-y-6">
                         <div className="di-card">
-                            <h2 className="di-section-title">AE Matrix</h2>
+                            <h2 className="di-section-title">Shared Side Effects Comparison</h2>
                             {aeMatrixData.length ? (
                                 <div className="h-96">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -168,35 +184,38 @@ function DrugComparePage() {
                                 </div>
                             ) : (
                                 <div className="flex h-96 items-center justify-center rounded-xl border border-dashed border-di-border text-sm text-di-text-secondary">
-                                    No overlapping adverse-event data found for this pair.
+                                    No overlapping side effects were found for this pair.
                                 </div>
                             )}
                         </div>
 
                         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                             <div className="di-card">
-                                <h2 className="di-section-title">Sentiment Comparison</h2>
+                                <h2 className="di-section-title">Patient Sentiment Comparison</h2>
                                 {sentimentData.length ? (
                                     <div className="h-72">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={sentimentData} margin={{ top: 8, right: 12, left: -12, bottom: 8 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#1E3A2F" />
                                                 <XAxis dataKey="name" stroke="#8BA89E" tickLine={false} axisLine={false} />
-                                                <YAxis stroke="#8BA89E" tickLine={false} axisLine={false} />
-                                                <Tooltip contentStyle={{ backgroundColor: '#112820', border: '1px solid #1E3A2F', borderRadius: '12px', color: '#FFFFFF' }} />
+                                                <YAxis stroke="#8BA89E" tickLine={false} axisLine={false} tickFormatter={sentimentLabelFromScore} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: '#112820', border: '1px solid #1E3A2F', borderRadius: '12px', color: '#FFFFFF' }}
+                                                    formatter={(value) => [sentimentLabelFromScore(value), 'Patient sentiment']}
+                                                />
                                                 <Bar dataKey="overall_sentiment" fill="#00C896" radius={[8, 8, 0, 0]} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
                                 ) : (
                                     <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-di-border text-sm text-di-text-secondary">
-                                        No sentiment comparison data available.
+                                        No patient sentiment comparison data available.
                                     </div>
                                 )}
                             </div>
 
                             <div className="di-card">
-                                <h2 className="di-section-title">Post Volume</h2>
+                                <h2 className="di-section-title">Discussion Volume</h2>
                                 {postVolumeData.length ? (
                                     <div className="h-72">
                                         <ResponsiveContainer width="100%" height="100%">
@@ -211,7 +230,7 @@ function DrugComparePage() {
                                     </div>
                                 ) : (
                                     <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-di-border text-sm text-di-text-secondary">
-                                        No post volume data available.
+                                        No discussion volume data available.
                                     </div>
                                 )}
                             </div>

@@ -15,6 +15,23 @@ function formatDate(value) {
     }).format(new Date(value));
 }
 
+function formatFlagReason(reason) {
+    const normalized = (reason || '').toLowerCase();
+    if (normalized.includes('false medical claim')) {
+        return 'False Medical Claim';
+    }
+    if (normalized.includes('contradicts established medical guidelines') || normalized.includes('contradicts medical guidelines')) {
+        return 'Contradicts Guidelines';
+    }
+    if (normalized.includes('stopping prescribed medication') || normalized.includes('stopping medication')) {
+        return 'Advises Stopping Medication';
+    }
+    return reason
+        ?.replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, (char) => char.toUpperCase()) || 'Medical Claim Review';
+}
+
 function MisinfoMonitorPage() {
     const [minConfidence, setMinConfidence] = useState(0.5);
     const [showReviewed, setShowReviewed] = useState(false);
@@ -70,13 +87,13 @@ function MisinfoMonitorPage() {
             <div className="space-y-6 animate-fade-in">
                 <div className="flex items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-di-text">Misinformation Monitor</h1>
+                        <h1 className="text-2xl font-bold text-di-text">Medical Misinformation Monitor</h1>
                         <p className="mt-1 text-sm text-di-text-secondary">
-                            AI-flagged posts requiring review.
+                            Patient posts flagged by AI as potentially containing false or dangerous medical claims. Pending expert medical review.
                         </p>
                     </div>
                     <div className="di-badge-red text-sm">
-                        Flagged: {feed?.total || 0}
+                        Posts Flagged: {feed?.total || 0}
                     </div>
                 </div>
 
@@ -84,7 +101,7 @@ function MisinfoMonitorPage() {
                     <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex-1">
                             <label className="mb-2 block text-sm text-di-text-secondary">
-                                Min Confidence: <span className="font-mono text-di-accent">{minConfidence.toFixed(2)}</span>
+                                Minimum AI Confidence: <span className="font-mono text-di-accent">{minConfidence.toFixed(2)}</span>
                             </label>
                             <input
                                 type="range"
@@ -151,7 +168,7 @@ function MisinfoMonitorPage() {
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                         <div className="min-w-0 flex-1">
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <span className="di-badge-red capitalize">{flag.flag_reason}</span>
+                                                <span className="di-badge-red capitalize">{formatFlagReason(flag.flag_reason)}</span>
                                                 <span className="di-badge-yellow">{Math.round(flag.confidence * 100)}%</span>
                                                 <span className={flag.reviewed ? 'di-badge-green' : 'di-badge-yellow'}>
                                                     {flag.reviewed ? 'Reviewed' : 'Unreviewed'}
@@ -164,7 +181,7 @@ function MisinfoMonitorPage() {
                                                 {flag.excerpt}
                                             </p>
                                             <div className="mt-4 text-xs text-di-text-secondary">
-                                                Flagged on {formatDate(flag.flagged_at)}
+                                                Reported on {formatDate(flag.flagged_at)}
                                             </div>
                                         </div>
                                         {!flag.reviewed ? (
@@ -184,7 +201,7 @@ function MisinfoMonitorPage() {
                             <div className="di-card py-16 text-center">
                                 <h2 className="text-xl font-semibold text-di-text">No flagged posts</h2>
                                 <p className="mx-auto mt-3 max-w-xl text-sm text-di-text-secondary">
-                                    No misinformation flags match the current confidence threshold and review filter.
+                                    No posts match the current confidence threshold. Try lowering the minimum confidence slider to see more flagged content.
                                 </p>
                             </div>
                         )}

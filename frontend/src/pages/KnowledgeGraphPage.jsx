@@ -16,7 +16,7 @@ function ErrorCard({ error, onRetry }) {
         <div className="di-card">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h2 className="di-section-title mb-1">Knowledge Graph</h2>
+                    <h2 className="di-section-title mb-1">Medication Side Effect Network</h2>
                     <p className="text-sm text-di-text-secondary">{error || 'Failed to load graph data.'}</p>
                 </div>
                 <button type="button" className="di-btn-secondary" onClick={onRetry}>
@@ -194,14 +194,14 @@ function KnowledgeGraphPage() {
             <div className="space-y-6 animate-fade-in">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-di-text">Knowledge Graph</h1>
+                        <h1 className="text-2xl font-bold text-di-text">Medication Side Effect Network</h1>
                         <p className="mt-1 text-sm text-di-text-secondary">
-                            Interactive drug-to-adverse-event network. Click a node to isolate its local neighborhood, double-click the canvas to reset.
+                            Explore connections between medications and their reported side effects. Click any node to focus on its relationships. Double-click the background to reset.
                         </p>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-di-text-secondary">
-                        <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: NODE_COLORS.drug }} /><span>Drug</span></div>
-                        <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: NODE_COLORS.ae }} /><span>Adverse event</span></div>
+                        <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: NODE_COLORS.drug }} /><span>Medication</span></div>
+                        <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: NODE_COLORS.ae }} /><span>Side Effect</span></div>
                     </div>
                 </div>
 
@@ -220,15 +220,15 @@ function KnowledgeGraphPage() {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div className="di-card text-center">
                         <div className="text-3xl font-bold" style={{ color: NODE_COLORS.drug }}>{stats.drug_nodes || 0}</div>
-                        <div className="mt-1 text-sm text-di-text-secondary">Drug nodes</div>
+                        <div className="mt-1 text-sm text-di-text-secondary">Medications</div>
                     </div>
                     <div className="di-card text-center">
                         <div className="text-3xl font-bold" style={{ color: NODE_COLORS.ae }}>{stats.ae_nodes || 0}</div>
-                        <div className="mt-1 text-sm text-di-text-secondary">AE nodes</div>
+                        <div className="mt-1 text-sm text-di-text-secondary">Side Effects</div>
                     </div>
                     <div className="di-card text-center">
                         <div className="text-3xl font-bold text-di-text">{stats.total_edges || 0}</div>
-                        <div className="mt-1 text-sm text-di-text-secondary">Total edges</div>
+                        <div className="mt-1 text-sm text-di-text-secondary">Reported Connections</div>
                     </div>
                 </div>
             </div>
@@ -237,3 +237,4 @@ function KnowledgeGraphPage() {
 }
 
 export default KnowledgeGraphPage;
+
