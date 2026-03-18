@@ -5,7 +5,8 @@ import ErrorBoundary from '../ErrorBoundary';
 import { SkeletonChart } from '../components/Dashboard/SkeletonLoaders';
 import { getDrugAEGraph } from '../services/api';
 
-const GRAPH_HEIGHT = 800;
+const GRAPH_HEIGHT = 1000;
+const MIN_EDGE_WEIGHT_DEFAULT = 3;
 const EDGE_DEFAULT = '#1a4a35';
 const EDGE_HIGHLIGHT = '#00C896';
 const NODE_COLORS = {
@@ -45,15 +46,15 @@ const getDrugCircleLabel = (node) => {
 };
 
 const getNodeRadius = (node) => {
-    if (node.type === 'drug') return 20;
-    if (node.type === 'outcome') return 12;
-    return 9;
+    if (node.type === 'drug') return 22;
+    if (node.type === 'outcome') return 10;
+    return 7;
 };
 
 const getCollisionRadius = (node) => {
-    if (node.type === 'drug') return 55;
-    if (node.type === 'ae') return 28;
-    return 34;
+    if (node.type === 'drug') return 200;
+    if (node.type === 'ae') return 100;
+    return 110;
 };
 
 const getTypeMeta = (type) => {
@@ -101,6 +102,14 @@ const getHighlightedFromClick = (clickedNodeId, neighborMap) => {
     ids.add(clickedNodeId);
     (neighborMap.get(clickedNodeId) || new Set()).forEach((neighborId) => ids.add(neighborId));
     return ids;
+};
+
+/* ---------- curved-edge path generator ---------- */
+const linkArc = (d) => {
+    const dx = d.target.x - d.source.x;
+    const dy = d.target.y - d.source.y;
+    const dr = Math.sqrt(dx * dx + dy * dy) * 1.6;
+    return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
 };
 
 function ErrorCard({ error, onRetry }) {
@@ -213,20 +222,65 @@ function NodeInfoPanel({ node, neighborCount, onClose }) {
     );
 }
 
+function ThresholdSlider({ value, max, onChange }) {
+    return (
+        <div
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginLeft: 'auto',
+                flexShrink: 0,
+            }}
+        >
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                Min. reports:
+            </span>
+            <input
+                type="range"
+                min={1}
+                max={Math.max(max, 5)}
+                value={value}
+                onChange={(e) => onChange(Number(e.target.value))}
+                style={{
+                    width: '100px',
+                    accentColor: '#00C896',
+                    cursor: 'pointer',
+                }}
+            />
+            <span
+                style={{
+                    color: '#00C896',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    fontVariantNumeric: 'tabular-nums',
+                    minWidth: '20px',
+                }}
+            >
+                {value}
+            </span>
+        </div>
+    );
+}
+
 function KnowledgeGraphPage() {
     const [graphData, setGraphData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedDrugs, setSelectedDrugs] = useState(new Set());
     const [clickedNodeId, setClickedNodeId] = useState(null);
+    const [hoveredNodeId, setHoveredNodeId] = useState(null);
     const [graphWidth, setGraphWidth] = useState(0);
+    const [minEdgeWeight, setMinEdgeWeight] = useState(MIN_EDGE_WEIGHT_DEFAULT);
 
     const containerRef = useRef(null);
     const svgRef = useRef(null);
     const nodeSelectionRef = useRef(null);
     const linkSelectionRef = useRef(null);
+    const labelSelectionRef = useRef(null);
     const clickedNodeIdRef = useRef(null);
     const selectedDrugsRef = useRef(new Set());
+    const hoveredNodeIdRef = useRef(null);
     const resetViewRef = useRef(() => {});
     const simulationRef = useRef(null);
     const handleSoftResetRef = useRef(null);
@@ -260,6 +314,10 @@ function KnowledgeGraphPage() {
     }, [selectedDrugs]);
 
     useEffect(() => {
+        hoveredNodeIdRef.current = hoveredNodeId;
+    }, [hoveredNodeId]);
+
+    useEffect(() => {
         if (!graphData || !containerRef.current) return undefined;
 
         const updateWidth = () => {
@@ -274,6 +332,16 @@ function KnowledgeGraphPage() {
         return () => observer.disconnect();
     }, [graphData]);
 
+    /* compute max edge weight for slider range */
+    const maxEdgeWeight = useMemo(() => {
+        if (!graphData) return 10;
+        let max = 1;
+        for (const edge of graphData.edges || []) {
+            if ((edge.weight || 1) > max) max = edge.weight;
+        }
+        return Math.min(max, 100);
+    }, [graphData]);
+
     const normalizedGraph = useMemo(() => {
         if (!graphData) {
             return {
@@ -285,18 +353,43 @@ function KnowledgeGraphPage() {
             };
         }
 
-        const nodes = graphData.nodes.map((node) => ({
-            ...node,
-            cleanLabel: cleanLabel(node.label || node.id),
-            displayName: getNodeDisplayName(node),
-        }));
-        const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-        const edges = graphData.edges.map((edge, index) => ({
-            ...edge,
-            id: `${typeof edge.source === 'object' ? edge.source.id : edge.source}-${typeof edge.target === 'object' ? edge.target.id : edge.target}-${edge.type || 'edge'}-${index}`,
-        }));
-        const neighborMap = new Map();
+        /* ---- edge pruning: drop edges below threshold ---- */
+        const prunedEdges = graphData.edges.filter(
+            (edge) => (edge.weight || 1) >= minEdgeWeight
+        );
 
+        /* collect node ids that still have at least one edge (or are drugs) */
+        const connectedIds = new Set();
+        prunedEdges.forEach((edge) => {
+            const src = typeof edge.source === 'object' ? edge.source.id : edge.source;
+            const tgt = typeof edge.target === 'object' ? edge.target.id : edge.target;
+            connectedIds.add(src);
+            connectedIds.add(tgt);
+        });
+
+        const nodes = graphData.nodes
+            .filter((node) => node.type === 'drug' || connectedIds.has(node.id))
+            .map((node) => ({
+                ...node,
+                cleanLabel: cleanLabel(node.label || node.id),
+                displayName: getNodeDisplayName(node),
+            }));
+
+        const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+
+        /* only keep edges where both endpoints survived pruning */
+        const edges = prunedEdges
+            .filter((edge) => {
+                const src = typeof edge.source === 'object' ? edge.source.id : edge.source;
+                const tgt = typeof edge.target === 'object' ? edge.target.id : edge.target;
+                return nodeMap.has(src) && nodeMap.has(tgt);
+            })
+            .map((edge, index) => ({
+                ...edge,
+                id: `${typeof edge.source === 'object' ? edge.source.id : edge.source}-${typeof edge.target === 'object' ? edge.target.id : edge.target}-${edge.type || 'edge'}-${index}`,
+            }));
+
+        const neighborMap = new Map();
         edges.forEach((edge) => {
             const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
             const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
@@ -319,7 +412,7 @@ function KnowledgeGraphPage() {
                 total_edges: edges.length,
             },
         };
-    }, [graphData]);
+    }, [graphData, minEdgeWeight]);
 
     const drugNodes = useMemo(() => {
         const seen = new Map();
@@ -400,6 +493,7 @@ function KnowledgeGraphPage() {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [handleSoftReset]);
 
+    /* ============ D3 GRAPH RENDERING ============ */
     useEffect(() => {
         if (!svgRef.current || normalizedGraph.nodes.length === 0) return undefined;
 
@@ -409,9 +503,9 @@ function KnowledgeGraphPage() {
         const nodes = normalizedGraph.nodes.map((node) => ({ ...node }));
         const edges = normalizedGraph.edges.map((edge) => ({ ...edge }));
         const nodeCount = nodes.length;
-        const edgeCount = edges.length;
-        const linkDistance = edgeCount > 0 ? Math.min(200, width / Math.sqrt(edgeCount)) : 200;
-        const prerunTicks = Math.max(1, Math.ceil(300 / Math.log(nodeCount + 1)));
+
+        /* adaptive layout parameters */
+        const baseLinkDist = 600;
 
         svg.selectAll('*').remove();
         svg
@@ -461,10 +555,8 @@ function KnowledgeGraphPage() {
             });
 
         svg.call(zoomBehavior).on('dblclick.zoom', null);
-        resetViewRef.current = () => {
-            svg.transition().duration(250).call(zoomBehavior.transform, d3.zoomIdentity);
-        };
 
+        /* ---- force simulation — very strong repulsion, NO centering clamp ---- */
         const simulation = d3
             .forceSimulation(nodes)
             .force(
@@ -472,39 +564,61 @@ function KnowledgeGraphPage() {
                 d3
                     .forceLink(edges)
                     .id((node) => node.id)
-                    .distance(linkDistance)
-                    .strength((edge) => (edge.type === 'drug_combination' ? 0.3 : 0.62))
+                    .distance(baseLinkDist)
+                    .strength(0.05)
             )
             .force(
                 'charge',
                 d3.forceManyBody().strength((node) => {
-                    if (node.type === 'drug') return -820;
-                    if (node.type === 'outcome') return -360;
-                    return -230;
-                })
+                    if (node.type === 'drug') return -15000;
+                    if (node.type === 'outcome') return -5000;
+                    return -4000;
+                }).distanceMax(5000)
             )
-            .force('x', d3.forceX(width / 2).strength(0.15))
-            .force('y', d3.forceY(height / 2).strength(0.15))
-            .force('collision', d3.forceCollide().radius((node) => getCollisionRadius(node)).strength(1))
+            .force('x', d3.forceX(width / 2).strength(0.005))
+            .force('y', d3.forceY(height / 2).strength(0.005))
+            .force('collision', d3.forceCollide().radius((node) => getCollisionRadius(node)).strength(2))
+            .velocityDecay(0.3)
+            .alphaDecay(0.01)
             .stop();
 
-        for (let tick = 0; tick < prerunTicks; tick += 1) {
+        /* ---- pre-run 600 ticks — layout fully settles before render ---- */
+        for (let tick = 0; tick < 600; tick += 1) {
             simulation.tick();
         }
 
+        /* ---- auto-zoom to fit all nodes with padding ---- */
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         nodes.forEach((node) => {
-            node.x = Math.max(50, Math.min(width - 50, node.x || width / 2));
-            node.y = Math.max(50, Math.min(height - 50, node.y || height / 2));
+            const r = getCollisionRadius(node);
+            if (node.x - r < minX) minX = node.x - r;
+            if (node.y - r < minY) minY = node.y - r;
+            if (node.x + r > maxX) maxX = node.x + r;
+            if (node.y + r > maxY) maxY = node.y + r;
         });
+        const graphW = maxX - minX || 1;
+        const graphH = maxY - minY || 1;
+        const pad = 60;
+        const fitScale = Math.min((width - pad * 2) / graphW, (height - pad * 2) / graphH, 1);
+        const fitX = (width - graphW * fitScale) / 2 - minX * fitScale;
+        const fitY = (height - graphH * fitScale) / 2 - minY * fitScale;
+        const initialTransform = d3.zoomIdentity.translate(fitX, fitY).scale(fitScale);
+        svg.call(zoomBehavior.transform, initialTransform);
 
+        resetViewRef.current = () => {
+            svg.transition().duration(400).call(zoomBehavior.transform, initialTransform);
+        };
+
+        /* ---- curved edges ---- */
         const link = linkLayer
-            .selectAll('line')
+            .selectAll('path')
             .data(edges, (edge) => edge.id)
-            .join('line')
+            .join('path')
+            .attr('fill', 'none')
             .attr('stroke', EDGE_DEFAULT)
             .attr('stroke-linecap', 'round')
-            .attr('stroke-opacity', 0.55)
-            .attr('stroke-width', (edge) => Math.max(0.3, Math.sqrt(edge.weight || 1) * 0.25));
+            .attr('stroke-opacity', 0.25)
+            .attr('stroke-width', (edge) => Math.max(0.5, Math.log2(edge.weight || 1) * 0.6));
 
         const dragBehavior = d3
             .drag()
@@ -522,7 +636,7 @@ function KnowledgeGraphPage() {
                         settleTimeoutRef.current = null;
                     }
                     simulationRef.current = simulation;
-                    simulation.alphaTarget(0.16).restart();
+                    simulation.alphaTarget(0.08).restart();
                 }
 
                 graphNode.fx = event.x;
@@ -534,12 +648,10 @@ function KnowledgeGraphPage() {
                 graphNode.fy = null;
 
                 if (graphNode.wasDragged) {
-                    if (!event.active) {
-                        simulation.alphaTarget(0);
-                    }
+                    simulation.alphaTarget(0);
                     settleTimeoutRef.current = setTimeout(() => {
                         simulation.stop();
-                    }, 250);
+                    }, 600);
                 }
 
                 graphNode.wasDragged = false;
@@ -555,25 +667,32 @@ function KnowledgeGraphPage() {
                 event.stopPropagation();
                 if (simulationRef.current) simulationRef.current.stop();
                 setClickedNodeId((current) => (current === graphNode.id ? null : graphNode.id));
+            })
+            .on('mouseenter', (event, graphNode) => {
+                setHoveredNodeId(graphNode.id);
+            })
+            .on('mouseleave', () => {
+                setHoveredNodeId(null);
             });
 
         node
             .append('circle')
             .attr('r', (graphNode) => getNodeRadius(graphNode))
             .attr('fill', (graphNode) => NODE_COLORS[graphNode.type] || NODE_COLORS.ae)
-            .attr('stroke', '#FFFFFF')
+            .attr('stroke', (graphNode) => graphNode.type === 'drug' ? '#FFFFFF' : 'rgba(255,255,255,0.4)')
             .attr('stroke-width', (graphNode) => {
-                if (graphNode.type === 'drug') return 2;
+                if (graphNode.type === 'drug') return 2.5;
                 if (graphNode.type === 'outcome') return 1;
-                return 0.8;
+                return 0.6;
             });
 
+        /* drug labels — always visible inside the circle */
         node
             .filter((graphNode) => graphNode.type === 'drug')
             .append('text')
             .text((graphNode) => getDrugCircleLabel(graphNode))
             .attr('fill', '#FFFFFF')
-            .attr('font-size', 13)
+            .attr('font-size', 11)
             .attr('font-weight', 700)
             .attr('lengthAdjust', 'spacingAndGlyphs')
             .attr('pointer-events', 'none')
@@ -581,50 +700,54 @@ function KnowledgeGraphPage() {
             .attr('textLength', 32)
             .attr('dominant-baseline', 'central');
 
+        /* non-drug labels — hidden by default, shown on hover/selection */
         const nonDrugNodes = node.filter((graphNode) => graphNode.type !== 'drug');
 
-        nonDrugNodes
-            .append('rect')
-            .attr('width', (graphNode) => graphNode.cleanLabel.length * 6.5 + 8)
-            .attr('height', 16)
-            .attr('fill', 'rgba(7,15,12,0.9)')
-            .attr('rx', 3)
-            .attr('x', 12)
-            .attr('y', -8)
-            .attr('pointer-events', 'none');
+        const labelGroups = nonDrugNodes.append('g')
+            .attr('class', 'node-label-group')
+            .attr('pointer-events', 'none')
+            .style('opacity', 0);
 
-        nonDrugNodes
+        labelGroups
+            .append('rect')
+            .attr('width', (graphNode) => graphNode.cleanLabel.length * 6.2 + 12)
+            .attr('height', 18)
+            .attr('fill', 'rgba(7,15,12,0.92)')
+            .attr('stroke', 'rgba(0,200,150,0.15)')
+            .attr('stroke-width', 0.5)
+            .attr('rx', 4)
+            .attr('x', 11)
+            .attr('y', -9);
+
+        labelGroups
             .append('text')
             .text((graphNode) => graphNode.cleanLabel)
-            .attr('fill', '#F4F7F5')
-            .attr('font-size', 11)
-            .attr('pointer-events', 'none')
+            .attr('fill', '#E8F0EC')
+            .attr('font-size', 10.5)
+            .attr('font-weight', 500)
             .attr('text-anchor', 'start')
             .attr('dominant-baseline', 'central')
-            .attr('dx', 14);
+            .attr('dx', 15);
 
         const positionGraph = () => {
-            link
-                .attr('x1', (edge) => edge.source.x)
-                .attr('y1', (edge) => edge.source.y)
-                .attr('x2', (edge) => edge.target.x)
-                .attr('y2', (edge) => edge.target.y);
-
+            link.attr('d', linkArc);
             node.attr('transform', (graphNode) => `translate(${graphNode.x},${graphNode.y})`);
         };
 
         positionGraph();
 
+        /* start with very low alpha — graph is already settled from pre-run */
         simulation.on('tick', positionGraph);
-        simulation.alpha(0.12).restart();
+        simulation.alpha(0.05).restart();
         simulationRef.current = simulation;
 
         settleTimeoutRef.current = setTimeout(() => {
             simulation.stop();
-        }, 3000);
+        }, 1500);
 
         nodeSelectionRef.current = node;
         linkSelectionRef.current = link;
+        labelSelectionRef.current = labelGroups;
 
         return () => {
             if (settleTimeoutRef.current) {
@@ -637,10 +760,12 @@ function KnowledgeGraphPage() {
             }
             nodeSelectionRef.current = null;
             linkSelectionRef.current = null;
+            labelSelectionRef.current = null;
             svg.on('.zoom', null);
         };
     }, [normalizedGraph.nodes, normalizedGraph.edges, graphWidth]);
 
+    /* ============ HIGHLIGHT + LABEL VISIBILITY UPDATE ============ */
     useEffect(() => {
         if (simulationRef.current) {
             simulationRef.current.stop();
@@ -648,15 +773,19 @@ function KnowledgeGraphPage() {
 
         const nodeSelection = nodeSelectionRef.current;
         const linkSelection = linkSelectionRef.current;
+        const labelSelection = labelSelectionRef.current;
         if (!nodeSelection || !linkSelection) return;
 
         const highlighted = clickedNodeId
             ? getHighlightedFromClick(clickedNodeId, normalizedGraph.neighborMap)
             : getHighlightedFromPills(selectedDrugs, normalizedGraph.nodes, normalizedGraph.neighborMap);
         const hasSelection = Boolean(clickedNodeId) || selectedDrugs.size > 0;
+        const hovered = hoveredNodeId;
 
-        nodeSelection.style('opacity', (graphNode) => (hasSelection ? (highlighted.has(graphNode.id) ? 1 : 0.06) : 1));
+        /* node opacity */
+        nodeSelection.style('opacity', (graphNode) => (hasSelection ? (highlighted.has(graphNode.id) ? 1 : 0.08) : 1));
 
+        /* glow on highlighted */
         nodeSelection
             .select('circle')
             .attr('filter', (graphNode) => {
@@ -664,6 +793,16 @@ function KnowledgeGraphPage() {
                 return highlighted.has(graphNode.id) ? 'url(#knowledge-graph-glow)' : null;
             });
 
+        /* label visibility: show for highlighted nodes, hovered node, or drug nodes */
+        if (labelSelection) {
+            labelSelection.style('opacity', function(graphNode) {
+                if (hasSelection && highlighted.has(graphNode.id)) return 1;
+                if (hovered && graphNode.id === hovered) return 1;
+                return 0;
+            });
+        }
+
+        /* edge styling */
         linkSelection
             .attr('stroke', (edge) => {
                 const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
@@ -671,20 +810,20 @@ function KnowledgeGraphPage() {
                 return hasSelection && highlighted.has(sourceId) && highlighted.has(targetId) ? EDGE_HIGHLIGHT : EDGE_DEFAULT;
             })
             .attr('stroke-opacity', (edge) => {
-                if (!hasSelection) return 0.55;
+                if (!hasSelection) return 0.25;
                 const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
                 const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
-                return highlighted.has(sourceId) && highlighted.has(targetId) ? 1 : 0.03;
+                return highlighted.has(sourceId) && highlighted.has(targetId) ? 0.85 : 0.03;
             })
             .attr('stroke-width', (edge) => {
-                if (!hasSelection) return Math.max(0.3, Math.sqrt(edge.weight || 1) * 0.25);
+                if (!hasSelection) return Math.max(0.5, Math.log2(edge.weight || 1) * 0.6);
                 const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
                 const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
                 return highlighted.has(sourceId) && highlighted.has(targetId)
-                    ? 2
-                    : Math.max(0.3, Math.sqrt(edge.weight || 1) * 0.25);
+                    ? 2.5
+                    : Math.max(0.5, Math.log2(edge.weight || 1) * 0.6);
             });
-    }, [clickedNodeId, normalizedGraph.neighborMap, normalizedGraph.nodes, selectedDrugs]);
+    }, [clickedNodeId, hoveredNodeId, normalizedGraph.neighborMap, normalizedGraph.nodes, selectedDrugs]);
 
     const stats = normalizedGraph.stats;
 
@@ -695,7 +834,8 @@ function KnowledgeGraphPage() {
                     <div>
                         <h1 className="text-3xl font-bold text-di-text">Medication Side Effect Network</h1>
                         <p className="mt-2 max-w-3xl text-sm text-di-text-secondary">
-                            Connections between medications and patient-reported side effects. Node size reflects report frequency.
+                            Connections between medications and patient-reported side effects. Hover over a node to see its label.
+                            Click any node or medication pill to highlight connections.
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-di-text-secondary">
@@ -717,7 +857,7 @@ function KnowledgeGraphPage() {
                 {error ? (
                     <ErrorCard error={error} onRetry={loadGraph} />
                 ) : loading && !graphData ? (
-                    <SkeletonChart height="h-[800px]" />
+                    <SkeletonChart height="h-[900px]" />
                 ) : (
                     <>
                         <div className="di-card" style={{ padding: '18px 20px' }}>
@@ -740,10 +880,15 @@ function KnowledgeGraphPage() {
                                         Clear
                                     </button>
                                 )}
+                                <ThresholdSlider
+                                    value={minEdgeWeight}
+                                    max={maxEdgeWeight}
+                                    onChange={setMinEdgeWeight}
+                                />
                             </div>
                             <p className="mt-4 text-sm text-di-text-secondary">
-                                Click a medication pill to highlight its side effects. Click any node for details. Drag to reposition.
-                                Scroll to zoom.
+                                Click a medication pill to highlight its side effects. Hover any node to see its label.
+                                Click any node for details. Drag to reposition. Scroll to zoom. Use the slider to filter low-frequency connections.
                             </p>
                         </div>
 
