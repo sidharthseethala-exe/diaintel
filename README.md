@@ -62,8 +62,12 @@ We built DiaIntel to make pharmacovigilance proactive instead of reactive.
 ### Treatment Intelligence Dashboard
 A command-center view across all tracked medications. See sentiment trends over time, adverse event report volumes, and AI-confidence scores at a glance. The kind of interface that makes you want to explore the data.
 
+![DiaIntel Dashboard](./frontend/images/dashboard.jpeg)
+
 ### Side Effect Knowledge Graph
 A live, D3-powered network that maps the relationships between drugs, adverse events, and patient-reported outcomes. Drag, filter, and click your way through the data. Adjust thresholds to cut through the noise and find the high-signal patterns underneath.
+
+![Side Effect Knowledge Graph](./frontend/images/graph.jpeg)
 
 ### Live Safety Analyzer
 Paste any patient text — a Reddit post, a forum comment, an app review — and get back a structured clinical analysis in seconds:
@@ -179,6 +183,8 @@ diaintel/
 ## Pipeline Overview
 
 The data flows through a disciplined sequence of processing stages:
+
+![DiaIntel NLP Pipeline](./frontend/images/pipeline.jpeg)
 
 ```
 Reddit / Patient Forums
